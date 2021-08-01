@@ -190,6 +190,20 @@ export default {
     }
   },
   methods: {
+    subscribeToUpdates(tickerName) {
+      setInterval(async () => {
+        const res = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=56e16e764575f454a931393f00aa8347d00dfdb50778730966ce8750e41dc496`
+        )
+        const data = await res.json()
+
+        this.tickers.find((t) => t.name === tickerName).price =
+          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+
+        if (this.sel?.name === tickerName) this.graph.push(data.USD)
+      }, 5000)
+    },
+
     onAdd() {
       const newTicker = {
         name: this.ticker.toUpperCase(),
@@ -203,18 +217,9 @@ export default {
       } else {
         this.showAlert = true
       }
+      this.subscribeToUpdates(newTicker.name)
 
-      setInterval(async () => {
-        const res = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key=56e16e764575f454a931393f00aa8347d00dfdb50778730966ce8750e41dc496`
-        )
-        const data = await res.json()
-
-        this.tickers.find((t) => t.name === newTicker.name).price =
-          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
-
-        if (this.sel?.name === newTicker.name) this.graph.push(data.USD)
-      }, 5000)
+      localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers))
     },
 
     onChange() {
@@ -236,8 +241,14 @@ export default {
     },
 
     onDeleteTicker(tickerToRemove) {
-      this.tickers = this.tickers.filter((t) => t.name !== tickerToRemove)
-      this.tickersNames = this.tickersNames.filter((n) => n !== tickerToRemove)
+      this.tickers = this.tickers.filter((t) => t.name !== tickerToRemove.name)
+      this.tickersNames = this.tickersNames.filter(
+        (n) => n !== tickerToRemove.name
+      )
+      localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers))
+      this.tickers.forEach((ticker) => {
+        this.subscribeToUpdates(ticker.name)
+      })
     },
 
     addTickerFromHint(currentHint) {
@@ -270,6 +281,18 @@ export default {
     const data = await res.json()
 
     this.coinList = Object.keys(data.Data)
+  },
+
+  created: function() {
+    const localTickers = localStorage.getItem('cryptonomicon-list')
+
+    if (localTickers) {
+      this.tickers = JSON.parse(localTickers)
+      this.tickers.forEach((ticker) => {
+        this.subscribeToUpdates(ticker.name)
+      })
+      this.tickersNames = Object.keys(this.tickers)
+    }
   },
 }
 </script>
