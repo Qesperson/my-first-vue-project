@@ -85,12 +85,12 @@
           Добавить
         </button>
       </section>
-      <template v-if="tickers.length">
+      <template v-if="filteredTickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
             @click="onSelectTicker(t)"
-            v-for="t in tickers"
+            v-for="t in filteredTickers"
             :key="t.name"
             :class="{
               'border-4': sel === t,
@@ -181,12 +181,14 @@ export default {
       isLoading: false,
       ticker: '',
       tickers: [],
+      filteredTickers: [],
       tickersNames: [],
       sel: null,
       graph: [],
       coinList: [],
       hintList: [],
       showAlert: false,
+      filter: '',
     }
   },
   methods: {
@@ -214,6 +216,7 @@ export default {
         this.showAlert = false
         this.tickers.push(newTicker)
         this.tickersNames.push(newTicker.name)
+        this.filteredTickers = this.tickers
       } else {
         this.showAlert = true
       }
@@ -245,6 +248,9 @@ export default {
       this.tickersNames = this.tickersNames.filter(
         (n) => n !== tickerToRemove.name
       )
+
+      this.filteredTickers = this.tickers
+
       localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers))
       this.tickers.forEach((ticker) => {
         this.subscribeToUpdates(ticker.name)
@@ -269,6 +275,14 @@ export default {
     },
   },
 
+  watch: {
+    filter: function() {
+      this.filteredTickers = this.tickers.filter((t) =>
+        t.name.includes(this.filter.toUpperCase())
+      )
+    },
+  },
+
   beforeMount: function() {
     this.isLoading = true
   },
@@ -281,6 +295,8 @@ export default {
     const data = await res.json()
 
     this.coinList = Object.keys(data.Data)
+
+    this.filteredTickers = this.tickers
   },
 
   created: function() {
