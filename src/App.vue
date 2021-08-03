@@ -84,13 +84,37 @@
           </svg>
           Добавить
         </button>
+        <section>
+          <div>
+            <input
+              v-model="filter"
+              placeholder="Введите для фильтрации"
+              type="text"
+              class="block w-60 pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
+            />
+            <button
+              @click="page -= 1"
+              v-show="page > 1"
+              class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              Назад
+            </button>
+            <button
+              @click="page += 1"
+              v-show="hasNextPage"
+              class="my-4 ml-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              Вперёд
+            </button>
+          </div>
+        </section>
       </section>
-      <template v-if="filteredTickers.length">
+      <template v-if="tickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
             @click="onSelectTicker(t)"
-            v-for="t in filteredTickers"
+            v-for="t in filteredTickers()"
             :key="t.name"
             :class="{
               'border-4': sel === t,
@@ -181,7 +205,6 @@ export default {
       isLoading: false,
       ticker: '',
       tickers: [],
-      filteredTickers: [],
       tickersNames: [],
       sel: null,
       graph: [],
@@ -189,9 +212,22 @@ export default {
       hintList: [],
       showAlert: false,
       filter: '',
+      page: 1,
+      hasNextPage: true,
     }
   },
   methods: {
+    filteredTickers() {
+      let startPagination = 6 * (this.page - 1)
+      let endPagination = 6 * this.page
+
+      this.hasNextPage = this.tickers.length > endPagination
+
+      return this.tickers
+        .filter((t) => t.name.includes(this.filter))
+        .slice(startPagination, endPagination)
+    },
+
     subscribeToUpdates(tickerName) {
       setInterval(async () => {
         const res = await fetch(
@@ -216,10 +252,10 @@ export default {
         this.showAlert = false
         this.tickers.push(newTicker)
         this.tickersNames.push(newTicker.name)
-        this.filteredTickers = this.tickers
       } else {
         this.showAlert = true
       }
+
       this.subscribeToUpdates(newTicker.name)
 
       localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers))
@@ -249,8 +285,6 @@ export default {
         (n) => n !== tickerToRemove.name
       )
 
-      this.filteredTickers = this.tickers
-
       localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers))
       this.tickers.forEach((ticker) => {
         this.subscribeToUpdates(ticker.name)
@@ -276,9 +310,21 @@ export default {
   },
 
   watch: {
-    filter: function() {
-      this.filteredTickers = this.tickers.filter((t) =>
-        t.name.includes(this.filter.toUpperCase())
+    filter() {
+      this.page = 1
+
+      history.pushState(
+        null,
+        '',
+        `${location.pathname}?filter=${this.filter}&page=${this.page}`
+      )
+    },
+
+    page() {
+      history.pushState(
+        null,
+        '',
+        `${location.pathname}?filter=${this.filter}&page=${this.page}`
       )
     },
   },
@@ -295,8 +341,6 @@ export default {
     const data = await res.json()
 
     this.coinList = Object.keys(data.Data)
-
-    this.filteredTickers = this.tickers
   },
 
   created: function() {
@@ -308,6 +352,18 @@ export default {
         this.subscribeToUpdates(ticker.name)
       })
       this.tickersNames = Object.keys(this.tickers)
+    }
+
+    const locationData = Object.fromEntries(
+      new URL(location).searchParams.entries()
+    )
+
+    if (locationData.filter) {
+      this.filter = locationData.filter
+    }
+
+    if (locationData.page) {
+      this.page = +locationData.page
     }
   },
 }
